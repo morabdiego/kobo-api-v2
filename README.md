@@ -1,4 +1,4 @@
-# py-kobotoolbox
+# Kobo API v2 Python client
 
 [![PyPI version](https://img.shields.io/pypi/v/kobo-api-v2.svg)](https://pypi.org/project/kobo-api-v2/)
 [![Python](https://img.shields.io/pypi/pyversions/kobo-api-v2.svg)](https://pypi.org/project/kobo-api-v2/)
