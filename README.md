@@ -1,196 +1,189 @@
 # py-kobotoolbox
 
-Cliente Python sincrónico para la [KoboToolbox API v2](https://kf.kobotoolbox.org/api/v2/docs/).
+[![PyPI version](https://img.shields.io/pypi/v/kobo-api-v2.svg)](https://pypi.org/project/kobo-api-v2/)
+[![Python](https://img.shields.io/pypi/pyversions/kobo-api-v2.svg)](https://pypi.org/project/kobo-api-v2/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
----
+A lightweight, synchronous Python client for the [KoboToolbox API v2](https://kf.kobotoolbox.org/api/v2/docs/).
 
-## Instalación
-
-Requiere Python ≥ 3.14. Dependencias: `requests`, `python-dotenv`.
+## Installation
 
 ```bash
-uv sync          # o: pip install requests python-dotenv
+pip install kobo-api-v2
 ```
 
----
+Requires Python ≥ 3.10.
 
-## Inicio rápido
-
-**1.** Crea un archivo `.env` con tu API token (KoboToolbox → Account Settings → Security → API key):
-
-```env
-KEY=<tu_api_token>
-```
-
-**2.** Descarga los datos de una encuesta en dos líneas:
+## Quick start
 
 ```python
-import os
-from dotenv import load_dotenv
 from kobo import KoboClient
 
-load_dotenv()
-client = KoboClient(api_token=os.environ["KEY"])
+client = KoboClient(api_token="<your_api_token>")
 
+# List available surveys
 surveys = client.get_surveys()
-client.get_excel(surveys[0]["uid"])   # → data_survey.xlsx
+
+# Download the first survey as Excel in one call
+saved = client.get_excel(surveys[0]["uid"])
+print(saved)  # → /absolute/path/to/data_survey.xlsx
+```
+
+Your API token is under **Account Settings → Security → API key** in your KoboToolbox account.
+
+---
+
+## API reference
+
+### `KoboClient(api_token, base_url=...)`
+
+```python
+# Public server (default)
+client = KoboClient(api_token="...")
+
+# Self-hosted instance
+client = KoboClient(api_token="...", base_url="https://kobo.myserver.org")
 ```
 
 ---
 
-## `get_excel` — exportación en un solo método
+### Surveys
 
 ```python
-client.get_excel(asset_uid, export_uid=None, path="data_survey.xlsx")
-```
+# List surveys (returns list[dict] with uid, name, deployment_status, …)
+surveys = client.get_surveys()
+surveys = client.get_surveys(search="census", limit=50, offset=0)
 
-| Parámetro | Default | Descripción |
-|-----------|---------|-------------|
-| `asset_uid` | — | UID de la encuesta |
-| `export_uid` | `None` | UID de un export ya lanzado; si se omite, se lanza uno nuevo |
-| `path` | `"data_survey.xlsx"` | Ruta local donde guardar el archivo |
-
-Sin argumentos opcionales, el método:
-1. Crea (o reutiliza) una configuración de exportación llamada `"python-client"`
-2. Lanza un export XLS con nombres internos del XLSForm (`lang="_xml"`)
-3. Espera hasta que el servidor lo genere (polling cada 3 s, timeout 120 s)
-4. Descarga el archivo y devuelve su `Path` absoluto
-
-```python
-# Mínimo
-saved = client.get_excel("atXzmELZmQgQkWD4cAnumv")
-
-# Con ruta personalizada
-saved = client.get_excel(uid, path="outputs/encuesta.xlsx")
-
-# Reutilizar un export ya lanzado
-saved = client.get_excel(uid, export_uid="eNHpF8SxT9oP2752mj8UJQ")
-```
-
----
-
-## Referencia completa
-
-### Listar encuestas
-
-```python
-surveys = client.get_surveys()                    # todas
-surveys = client.get_surveys(search="censo")      # filtradas
-```
-
-Devuelve `list[dict]` con `uid`, `name`, `deployment_status`, `date_modified`.
-
-| Parámetro | Default | Descripción |
-|-----------|---------|-------------|
-| `limit` | `100` | Resultados por página (máx. 300) |
-| `offset` | `0` | Desplazamiento para paginación |
-| `search` | `None` | Texto libre para filtrar |
-
----
-
-### Inspeccionar una encuesta
-
-```python
-# Metadata completa
+# Full metadata for a single survey
 survey = client.get_survey(uid)
 
-# Estructura XLSForm (preguntas, opciones, settings)
+# XLSForm content (survey, choices, settings sections)
 content = client.get_survey_content(uid)
 for row in content["survey"]:
     print(row["type"], row.get("$autoname"))
 ```
 
+#### `get_surveys` parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `limit` | `100` | Results per page (API max: 300) |
+| `offset` | `0` | Pagination offset |
+| `search` | `None` | Free-text filter |
+
 ---
 
-### Export settings (configuraciones reutilizables)
+### `get_excel` — one-call export
 
-Una export setting es una configuración guardada en KoboToolbox que puede reutilizarse en múltiples exportaciones.
+Download survey data as an Excel file with a single method call:
 
 ```python
-# Crear (falla si ya existe un nombre igual)
-setting_uid = client.create_export_setting(uid, name="mi_config")
+# Minimal — saves to data_survey.xlsx in the current directory
+saved = client.get_excel(uid)
 
-# Crear o reutilizar si ya existe — recomendado para scripts recurrentes
-setting_uid, created = client.get_or_create_export_setting(uid, name="mi_config")
+# Custom output path
+saved = client.get_excel(uid, path="outputs/survey.xlsx")
 
-# Listar las existentes
+# Reuse an already-triggered export task
+saved = client.get_excel(uid, export_uid="eNHpF8SxT9oP2752mj8UJQ")
+```
+
+When `export_uid` is omitted the method:
+1. Creates (or reuses) a saved export setting named `"python-client"`
+2. Triggers a new XLS export using XLSForm internal field names (`lang="_xml"`)
+3. Polls until the server finishes generating the file (every 3 s, 120 s timeout)
+4. Downloads the file and returns its absolute `Path`
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `asset_uid` | — | Survey UID |
+| `export_uid` | `None` | UID of an already-triggered export; triggers a new one if omitted |
+| `path` | `"data_survey.xlsx"` | Local destination path |
+| `poll_interval` | `3.0` | Seconds between status checks |
+| `timeout` | `120.0` | Max seconds to wait before raising `ExportTimeoutError` |
+
+---
+
+### Export settings (reusable configurations)
+
+Export settings are named configurations saved in KoboToolbox that can be reused across multiple exports.
+
+```python
+# Create a new setting (raises KoboError if the name already exists)
+setting_uid = client.create_export_setting(uid, name="my_config")
+
+# Create or reuse — recommended for recurring scripts
+setting_uid, created = client.get_or_create_export_setting(uid, name="my_config")
+
+# List all saved settings for a survey
 settings = client.list_export_settings(uid)
 ```
 
-**Defaults aplicados** (todos sobreescribibles con `**overrides`):
+All settings default to the values below and can be overridden with `**overrides`:
 
-| Campo | Default | Descripción |
+| Field | Default | Description |
 |-------|---------|-------------|
-| `type` | `"xls"` | Formato: `"xls"`, `"csv"`, `"geojson"` |
-| `lang` | `"_xml"` | `"_xml"` = nombres internos del XLSForm; o nombre del idioma, p.ej. `"Spanish"` |
-| `fields_from_all_versions` | `True` | Incluye campos de versiones anteriores |
-| `group_sep` | `"/"` | Separador de grupos en los nombres de columna |
-| `hierarchy_in_labels` | `False` | Incluye jerarquía en las etiquetas |
-| `multiple_select` | `"summary"` | `"summary"`, `"both"` o `"details"` |
-| `flatten` | `False` | Aplana la estructura de grupos |
-| `xls_types_as_text` | `False` | Exporta todos los tipos como texto |
-| `include_media_url` | `False` | Incluye URLs de archivos adjuntos |
+| `type` | `"xls"` | Format: `"xls"`, `"csv"`, `"geojson"` |
+| `lang` | `"_xml"` | `"_xml"` = XLSForm internal names; or a language label, e.g. `"English"` |
+| `fields_from_all_versions` | `True` | Include fields from older form versions |
+| `group_sep` | `"/"` | Column name separator for groups |
+| `hierarchy_in_labels` | `False` | Prepend group hierarchy to labels |
+| `multiple_select` | `"summary"` | `"summary"`, `"both"`, or `"details"` |
+| `flatten` | `False` | Flatten group structure |
+| `xls_types_as_text` | `False` | Export all values as strings |
+| `include_media_url` | `False` | Include attachment download URLs |
 
 ```python
-# Con overrides
 setting_uid = client.create_export_setting(
     uid,
-    name="csv_espanol",
+    name="csv_english",
     type="csv",
-    lang="Spanish",
+    lang="English",
 )
 ```
 
 ---
 
-### Exportaciones async (control manual)
+### Async exports (manual control)
 
-Para mayor control sobre el proceso de exportación:
+For full control over the export lifecycle:
 
 ```python
-# 1. Lanzar un export
+# 1. Trigger an export task
 export_uid = client.trigger_export(uid, type="xls", lang="_xml")
 
-# Filtrar por fecha
+# Filter by date
 export_uid = client.trigger_export(
     uid,
     query={"$and": [{"_submission_time": {"$gte": "2024-01-01"}}]},
 )
 
-# Solo ciertas submissions o campos
+# Specific submissions or fields
 export_uid = client.trigger_export(uid, submission_ids=[101, 102])
-export_uid = client.trigger_export(uid, fields=["nombre", "edad"])
+export_uid = client.trigger_export(uid, fields=["name", "age"])
 
-# 2. Esperar y obtener la URL de descarga
+# 2. Wait and get the download URL
 result = client.wait_for_export(uid, export_uid)
-print(result["result"])   # URL directa del archivo
+print(result["result"])  # direct download URL
 
-# 3. O esperar y descargar directamente
-saved = client.download_export(uid, export_uid, dest_path="datos/encuesta.xlsx")
+# 3. Or wait and download in one step
+saved = client.download_export(uid, export_uid, dest_path="data/survey.xlsx")
 ```
 
-| Método | Devuelve |
-|--------|----------|
+| Method | Returns |
+|--------|---------|
 | `trigger_export(uid, ...)` | `export_uid: str` |
-| `wait_for_export(uid, export_uid)` | `dict` con `result` (URL de descarga) |
-| `download_export(uid, export_uid, path)` | `Path` del archivo guardado |
+| `wait_for_export(uid, export_uid)` | `dict` with `result` (download URL) |
+| `download_export(uid, export_uid, path)` | `Path` of the saved file |
 
 ---
 
-## Instancia self-hosted
+## Error handling
 
-```python
-client = KoboClient(api_token="...", base_url="https://kobo.miinstancia.org")
-```
-
----
-
-## Errores
-
-| Excepción | Cuándo se lanza |
-|-----------|-----------------|
-| `KoboError` | La API devuelve un error HTTP (4xx / 5xx) |
-| `ExportTimeoutError` | El export no completó dentro del `timeout` (default: 120 s) |
+| Exception | Raised when |
+|-----------|-------------|
+| `KoboError` | The API returns an HTTP error (4xx / 5xx) |
+| `ExportTimeoutError` | Export did not complete within `timeout` seconds |
 
 ```python
 from kobo.client import KoboError, ExportTimeoutError
@@ -198,7 +191,13 @@ from kobo.client import KoboError, ExportTimeoutError
 try:
     saved = client.get_excel(uid, path="out.xlsx")
 except ExportTimeoutError:
-    print("La exportación tardó demasiado")
+    print("Export took too long")
 except KoboError as e:
-    print(f"Error de API: {e}")
+    print(f"API error: {e}")
 ```
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

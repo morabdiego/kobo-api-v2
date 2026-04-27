@@ -1,10 +1,40 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "py-kobotoolbox"
+name = "kobo-api-v2"
 version = "0.1.0"
-description = "Add your description here"
+description = "A synchronous Python client for the KoboToolbox API v2"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Diego Mora", email = "morabdiego@gmail.com" },
+]
+keywords = ["kobotoolbox", "kobo", "api", "survey", "data-collection", "xlsform"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
 dependencies = [
     "requests>=2.32",
-    "python-dotenv>=1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/morabdiego/kobo-api-v2"
+Repository = "https://github.com/morabdiego/kobo-api-v2"
+"Bug Tracker" = "https://github.com/morabdiego/kobo-api-v2/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kobo"]
